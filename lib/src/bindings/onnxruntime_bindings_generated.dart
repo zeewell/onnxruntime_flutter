@@ -279,64 +279,64 @@ abstract class OrtOpAttrType {
   static const int ORT_OP_ATTR_STRINGS = 6;
 }
 
-class OrtEnv extends ffi.Opaque {}
+final class OrtEnv extends ffi.Opaque {}
 
-class OrtStatus extends ffi.Opaque {}
+final class OrtStatus extends ffi.Opaque {}
 
-class OrtMemoryInfo extends ffi.Opaque {}
+final class OrtMemoryInfo extends ffi.Opaque {}
 
-class OrtIoBinding extends ffi.Opaque {}
+final class OrtIoBinding extends ffi.Opaque {}
 
-class OrtSession extends ffi.Opaque {}
+final class OrtSession extends ffi.Opaque {}
 
-class OrtValue extends ffi.Opaque {}
+final class OrtValue extends ffi.Opaque {}
 
-class OrtRunOptions extends ffi.Opaque {}
+final class OrtRunOptions extends ffi.Opaque {}
 
-class OrtTypeInfo extends ffi.Opaque {}
+final class OrtTypeInfo extends ffi.Opaque {}
 
-class OrtTensorTypeAndShapeInfo extends ffi.Opaque {}
+final class OrtTensorTypeAndShapeInfo extends ffi.Opaque {}
 
-class OrtMapTypeInfo extends ffi.Opaque {}
+final class OrtMapTypeInfo extends ffi.Opaque {}
 
-class OrtSequenceTypeInfo extends ffi.Opaque {}
+final class OrtSequenceTypeInfo extends ffi.Opaque {}
 
-class OrtOptionalTypeInfo extends ffi.Opaque {}
+final class OrtOptionalTypeInfo extends ffi.Opaque {}
 
-class OrtSessionOptions extends ffi.Opaque {}
+final class OrtSessionOptions extends ffi.Opaque {}
 
-class OrtCustomOpDomain extends ffi.Opaque {}
+final class OrtCustomOpDomain extends ffi.Opaque {}
 
-class OrtModelMetadata extends ffi.Opaque {}
+final class OrtModelMetadata extends ffi.Opaque {}
 
-class OrtThreadPoolParams extends ffi.Opaque {}
+final class OrtThreadPoolParams extends ffi.Opaque {}
 
-class OrtThreadingOptions extends ffi.Opaque {}
+final class OrtThreadingOptions extends ffi.Opaque {}
 
-class OrtArenaCfg extends ffi.Opaque {}
+final class OrtArenaCfg extends ffi.Opaque {}
 
-class OrtPrepackedWeightsContainer extends ffi.Opaque {}
+final class OrtPrepackedWeightsContainer extends ffi.Opaque {}
 
-class OrtTensorRTProviderOptionsV2 extends ffi.Opaque {}
+final class OrtTensorRTProviderOptionsV2 extends ffi.Opaque {}
 
-class OrtCUDAProviderOptionsV2 extends ffi.Opaque {}
+final class OrtCUDAProviderOptionsV2 extends ffi.Opaque {}
 
-class OrtCANNProviderOptions extends ffi.Opaque {}
+final class OrtCANNProviderOptions extends ffi.Opaque {}
 
-class OrtDnnlProviderOptions extends ffi.Opaque {}
+final class OrtDnnlProviderOptions extends ffi.Opaque {}
 
-class OrtOp extends ffi.Opaque {}
+final class OrtOp extends ffi.Opaque {}
 
-class OrtOpAttr extends ffi.Opaque {}
+final class OrtOpAttr extends ffi.Opaque {}
 
-class OrtLogger extends ffi.Opaque {}
+final class OrtLogger extends ffi.Opaque {}
 
 /// \brief Memory allocation interface
 ///
 /// Structure of function pointers that defines a memory allocator. This can be created and filled in by the user for custom allocators.
 ///
 /// When an allocator is passed to any function, be sure that the allocator object is not destroyed until the last allocated object using it is freed.
-class OrtAllocator extends ffi.Struct {
+final class OrtAllocator extends ffi.Struct {
   /// < Must be initialized to ORT_API_VERSION
   @ffi.Uint32()
   external int version;
@@ -388,13 +388,13 @@ abstract class OrtLanguageProjection {
   static const int ORT_PROJECTION_NODEJS = 6;
 }
 
-class OrtKernelInfo extends ffi.Opaque {}
+final class OrtKernelInfo extends ffi.Opaque {}
 
-class OrtKernelContext extends ffi.Opaque {}
+final class OrtKernelContext extends ffi.Opaque {}
 
 /// The OrtCustomOp structure defines a custom op's schema and its kernel callbacks. The callbacks are filled in by
 /// the implementor of the custom op.
-class OrtCustomOp extends ffi.Struct {
+final class OrtCustomOp extends ffi.Struct {
   /// Must be initialized to ORT_API_VERSION
   @ffi.Uint32()
   external int version;
@@ -502,7 +502,7 @@ class OrtCustomOp extends ffi.Struct {
 /// Call OrtApiBase::GetApi to get a pointer to it
 ///
 /// \nosubgrouping
-class OrtApi extends ffi.Struct {
+final class OrtApi extends ffi.Struct {
   /// \brief Create an OrtStatus from a null terminated string
   ///
   /// \param[in] code
@@ -2273,7 +2273,7 @@ abstract class OrtMemType {
 /// \brief CUDA Provider Options
 ///
 /// \see OrtApi::SessionOptionsAppendExecutionProvider_CUDA
-class OrtCUDAProviderOptions extends ffi.Struct {
+final class OrtCUDAProviderOptions extends ffi.Struct {
   /// \brief CUDA device Id
   /// Defaults to 0.
   @ffi.Int()
@@ -2348,7 +2348,7 @@ abstract class OrtCudnnConvAlgoSearch {
 /// \brief ROCM Provider Options
 ///
 /// \see OrtApi::SessionOptionsAppendExecutionProvider_ROCM
-class OrtROCMProviderOptions extends ffi.Struct {
+final class OrtROCMProviderOptions extends ffi.Struct {
   /// \brief ROCM device Id
   /// Defaults to 0.
   @ffi.Int()
@@ -2410,7 +2410,7 @@ class OrtROCMProviderOptions extends ffi.Struct {
 /// \brief OpenVINO Provider Options
 ///
 /// \see OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO
-class OrtOpenVINOProviderOptions extends ffi.Struct {
+final class OrtOpenVINOProviderOptions extends ffi.Struct {
   /// \brief Device type string
   ///
   /// Valid settings are one of: "CPU_FP32", "CPU_FP16", "GPU_FP32", "GPU_FP16"
@@ -2443,7 +2443,7 @@ class OrtOpenVINOProviderOptions extends ffi.Struct {
 /// \brief TensorRT Provider Options
 ///
 /// \see OrtApi::SessionOptionsAppendExecutionProvider_TensorRT
-class OrtTensorRTProviderOptions extends ffi.Struct {
+final class OrtTensorRTProviderOptions extends ffi.Struct {
   /// < CUDA device id (0 = default device)
   @ffi.Int()
   external int device_id;
@@ -2525,7 +2525,7 @@ typedef OrtCustomCreateThreadFn = ffi.Pointer<
             ffi.Pointer<ffi.Void> ort_worker_fn_param)>>;
 typedef OrtCustomThreadHandle = ffi.Pointer<OrtCustomHandleType>;
 
-class OrtCustomHandleType extends ffi.Struct {
+final class OrtCustomHandleType extends ffi.Struct {
   @ffi.Char()
   // ignore: unused_field
   external int __place_holder;
@@ -2550,7 +2550,7 @@ typedef OrtCustomJoinThreadFn = ffi.Pointer<
 /// \brief MIGraphX Provider Options
 ///
 /// \see OrtApi::SessionOptionsAppendExecutionProvider_MIGraphX
-class OrtMIGraphXProviderOptions extends ffi.Struct {
+final class OrtMIGraphXProviderOptions extends ffi.Struct {
   /// hip device id.
   @ffi.Int()
   external int device_id;
@@ -2564,7 +2564,7 @@ class OrtMIGraphXProviderOptions extends ffi.Struct {
   external int migraphx_int8_enable;
 }
 
-class OrtTrainingApi extends ffi.Opaque {}
+final class OrtTrainingApi extends ffi.Opaque {}
 
 /// \brief This mimics OrtDevice type constants so they can be returned in the API
 abstract class OrtMemoryInfoDeviceType {
@@ -2590,7 +2590,7 @@ abstract class OrtCustomOpInputOutputCharacteristic {
 /// \brief The helper interface to get the right version of OrtApi
 ///
 /// Get a pointer to this structure through ::OrtGetApiBase
-class OrtApiBase extends ffi.Struct {
+final class OrtApiBase extends ffi.Struct {
   /// \brief Get a pointer to the requested version of the ::OrtApi
   ///
   /// \param[in] version Must be ::ORT_API_VERSION

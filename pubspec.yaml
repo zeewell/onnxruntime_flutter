@@ -4,19 +4,19 @@ version: 1.4.1
 homepage: https://github.com/gtbluesky/onnxruntime_flutter
 
 environment:
-  sdk: '>=2.17.0 <4.0.0'
+  sdk: '>=3.10.0 <4.0.0'
   flutter: '>=3.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  ffi: ^2.0.1
+  ffi: ^2.2.0
 
 dev_dependencies:
-  ffigen: ^7.2.11
+  ffigen: ^22.0.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
   # pana: ^0.21.36
 
 flutter:
