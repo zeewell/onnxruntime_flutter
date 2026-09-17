@@ -21,6 +21,17 @@ ONNX Runtime **1.30.0**. The host must also meet
 See [native dependency details](NATIVE_DEPENDENCIES.md) for binary sources,
 checksums, Apple linking, and Android build requirements.
 
+### Apple host setup
+
+iOS and macOS applications must use Flutter's Swift Package Manager integration.
+CocoaPods-only Apple hosts are no longer supported by this plugin. Existing
+applications should [enable Swift Package Manager and migrate with Flutter](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers),
+then rebuild so Flutter can add the plugin through
+`FlutterGeneratedPluginSwiftPackage`.
+Whether the application's old CocoaPods integration can be removed depends on
+its other dependencies; do not remove it while another dependency still needs
+CocoaPods.
+
 ## Key Features
 
 * Multi-platform Support for Android, iOS, Linux, macOS, Windows, and Web(Coming soon).

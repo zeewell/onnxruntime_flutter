@@ -1,3 +1,11 @@
+## Unreleased
+
+* **Breaking:** iOS and macOS integration now requires Flutter's Swift Package
+  Manager support; CocoaPods-only Apple hosts are no longer supported.
+* Links the official ONNX Runtime 1.30.0 C XCFramework statically through a
+  shared Darwin Swift package. The supported Apple deployment targets,
+  architectures, and Dart API remain unchanged.
+
 ## 1.4.1
 
 * Fixes a memory leak when creating tensor.

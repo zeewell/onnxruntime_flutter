@@ -4,7 +4,8 @@ This fork carries the Dart lifecycle fixes originally maintained in AuraID's
 `vendor/onnxruntime_aura`, introduced by AuraID commit `d1f00e97`.
 They are ported onto upstream main `8cde2fbe36b55c3b01e5745234f6f65a5c512caf`,
 preserving its model metadata API and QNN provider support. Native libraries,
-platform integration and inference mathematics are unchanged.
+platform integration and inference mathematics are unchanged by the lifecycle
+patch itself.
 
 ## Behavior and ownership
 
@@ -45,10 +46,11 @@ DYLD_INSERT_LIBRARIES="$ORT_DYLIB" ONNX_NATIVE_TEST=1 \
 Set `FLUTTER_ROOT` to your Flutter SDK directory and run `flutter pub get` first.
 Set `ORT_DYLIB` to the absolute path of `libonnxruntime.1.30.0.dylib` from the
 official macOS ARM64 release archive (see [native dependencies](NATIVE_DEPENDENCIES.md)).
-The Flutter test runner does not link the application's CocoaPods, so the library
-must be injected into its process for this opt-in test. This standalone test
-command requires an Apple Silicon Mac; the application's CocoaPod supports Intel
-as well. Invoking Dart directly avoids macOS stripping `DYLD_INSERT_LIBRARIES`
+The Flutter test runner does not link the application's native Swift package
+dependencies, so the library must be injected into its process for this opt-in
+test. This standalone test command requires an Apple Silicon Mac; the
+universal macOS XCFramework used by applications also includes Intel. Invoking
+Dart directly avoids macOS stripping `DYLD_INSERT_LIBRARIES`
 while passing through the Flutter shell launcher.
 
 These checks do not establish device/CoreML cancellation latency, recovery from

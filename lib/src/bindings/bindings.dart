@@ -8,7 +8,7 @@ final DynamicLibrary _dylib = () {
   }
 
   if (Platform.isIOS || Platform.isMacOS) {
-    // Apple platforms statically link the official ONNX Runtime CocoaPod.
+    // Apple platforms statically link the official ONNX Runtime Swift package.
     return DynamicLibrary.process();
   }
 

@@ -9,8 +9,8 @@ supports. Updating the runtime does not expose every new C API through Dart.
 | Platform | Source | Packaging |
 | --- | --- | --- |
 | Android | [Maven Central AAR](https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.30.0/onnxruntime-android-1.30.0.aar) | Only `jni/arm64-v8a/libonnxruntime.so` and `jni/armeabi-v7a/libonnxruntime.so`; API 24+, 16 KB ELF alignment |
-| iOS | `onnxruntime-objc` CocoaPod 1.30.0 | Official static XCFramework via `onnxruntime-c`; iOS 15.1+ |
-| macOS | `onnxruntime-c` CocoaPod 1.30.0 | Official static XCFramework with ARM64 and x64 slices; macOS 14+ |
+| iOS | Local Swift package with the official `onnxruntime-c` binary target | Static XCFramework; iOS 15.1+, device arm64 and simulator arm64/x64 |
+| macOS | Local Swift package with the official `onnxruntime-c` binary target | Static XCFramework; macOS 14+, ARM64 and x64 |
 | Linux | `onnxruntime-linux-x64-1.30.0.tgz` release asset | `lib/libonnxruntime.so.1.30.0`; x64, glibc 2.28+ and compatible libstdc++ |
 | Windows | `onnxruntime-win-x64-1.30.0.zip` release asset | `lib/onnxruntime.dll`; x64, Windows 10+ and Visual C++ runtime |
 
@@ -18,20 +18,51 @@ Android continues to package only the C runtime, without the AAR's Java/JNI
 wrapper or manifest components. Desktop packages use the CPU distributions;
 provider availability is determined by each official binary.
 
-Apple loads symbols from `DynamicLibrary.process()`. The podspec linker flags
-retain the C entry points used by Dart FFI, including in release builds. macOS no
-longer bundles the old 1.15.1 dylib. After upgrading, application consumers must
-raise their deployment targets and update their ONNX Runtime pods.
+Apple uses the shared local package at `darwin/onnxruntime/Package.swift`. Its
+binary target downloads the official
+`https://download.onnxruntime.ai/pod-archive-onnxruntime-c-1.30.0.zip` archive and
+links the C runtime statically. The package linker settings preserve the weak
+CoreML link and the `OrtGetApiBase`,
+`OrtSessionOptionsAppendExecutionProvider_CPU`, and
+`OrtSessionOptionsAppendExecutionProvider_CoreML` entry points used by Dart FFI,
+including in release builds. Dart continues to resolve them through
+`DynamicLibrary.process()`. iOS no longer depends on `onnxruntime-objc`, and
+macOS no longer bundles the old 1.15.1 dylib.
+
+The linker flags use SwiftPM's `unsafeFlags` setting, supported by Flutter's
+generated local path dependencies. The package also depends on the
+Flutter-managed `FlutterFramework` package in the generated packages directory.
 
 The standalone macOS ARM64 archive is used only for host regression testing;
-applications use the universal CocoaPod. Upstream license and third-party notices
-for redistributed binaries are included under `native_licenses/`.
+applications use the universal XCFramework from the Swift package. Upstream
+license and third-party notices for redistributed binaries are included under
+`native_licenses/`.
+
+### Apple host migration
+
+The plugin declares both Apple platforms as FFI plugins with shared Darwin
+sources, so Swift Package Manager support is required. CocoaPods-only iOS and
+macOS hosts are no longer supported. Existing applications should
+[enable Swift Package Manager and follow Flutter's migration guidance](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers),
+then rebuild so Flutter can migrate the generated Apple project integration and
+attach `FlutterGeneratedPluginSwiftPackage`.
+
+Do not unconditionally remove CocoaPods from an application. The old plugin
+podspecs and ONNX Runtime pods are no longer used, but the application may still
+need its Podfile, Pods configuration, or workspace for other dependencies.
+
+The example Xcode projects navigate directly to the shared `Package.swift`.
+`FlutterGeneratedPluginSwiftPackage` owns the dependency; adding a second local
+package override can conflict with Flutter's generated package identity when
+the checkout directory name differs from the Dart package name.
 
 ### Archive SHA-256
 
 GitHub release asset digests were verified before extracting the desktop binaries.
 The Android download was additionally checked against Maven Central's SHA-1
-sidecar. The SHA-256 values below identify the exact downloaded archives.
+sidecar. The Apple binary-target archive was downloaded in full and verified
+against its Swift package checksum. The SHA-256 values below identify the exact
+downloaded archives.
 
 | Archive | SHA-256 |
 | --- | --- |
