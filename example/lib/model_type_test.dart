@@ -34,7 +34,7 @@ class ModelTypeTest {
     inputOrt.release();
     runOptions.release();
     sessionOptions.release();
-    session.release();
+    await session.release();
     OrtEnv.instance.release();
     return outputs;
   }

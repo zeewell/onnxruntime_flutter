@@ -9,6 +9,23 @@ import 'package:onnxruntime/src/ort_status.dart';
 import 'package:onnxruntime/src/util/list_shape_extension.dart';
 
 abstract class OrtValue {
+  static OrtValue? fromAddress(int address, ONNXType type) {
+    final ptr = ffi.Pointer<bg.OrtValue>.fromAddress(address);
+    switch (type) {
+      case ONNXType.tensor: return OrtValueTensor(ptr);
+      case ONNXType.sequence: return OrtValueSequence(ptr);
+      case ONNXType.map: return OrtValueMap(ptr);
+      case ONNXType.sparseTensor: return OrtValueSparseTensor(ptr);
+      default: return null;
+    }
+  }
+
+  static void releaseAddress(int address) {
+    OrtEnv.instance.ortApiPtr.ref.ReleaseValue.asFunction<
+        void Function(ffi.Pointer<bg.OrtValue>)>()(
+        ffi.Pointer<bg.OrtValue>.fromAddress(address));
+  }
+
   late ffi.Pointer<bg.OrtValue> _ptr;
 
   ffi.Pointer<bg.OrtValue> get ptr => _ptr;
@@ -692,36 +709,38 @@ class OrtTensorTypeAndShapeInfo {
   List<int> _tensorShape = [];
 
   OrtTensorTypeAndShapeInfo(ffi.Pointer<bg.OrtValue> ortValuePtr) {
-    final infoPtrPtr = calloc<ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>>();
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetTensorTypeAndShape
-            .asFunction<
-                bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtValue>,
-                    ffi.Pointer<ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>>)>()(
-        ortValuePtr, infoPtrPtr);
-    OrtStatus.checkOrtStatus(statusPtr);
-    final infoPtr = infoPtrPtr.value;
-    _tensorElementType = _getTensorElementType(infoPtr);
-    // shape
-    _dimensionsCount = _getDimensionsCount(infoPtr);
-    _tensorShape = _getDimensions(infoPtr, _dimensionsCount);
-    _tensorShapeElementCount = _getTensorShapeElementCount(infoPtr);
-    _releaseTensorTypeAndShapeInfo(infoPtr);
-    calloc.free(infoPtrPtr);
+    using((arena) {
+      final pp = arena<ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>>();
+      try {
+        final status = OrtEnv.instance.ortApiPtr.ref.GetTensorTypeAndShape
+            .asFunction<bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtValue>,
+                ffi.Pointer<ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>>)>()(
+            ortValuePtr, pp);
+        OrtStatus.checkOrtStatus(status);
+        _tensorElementType = _getTensorElementType(pp.value);
+        _dimensionsCount = _getDimensionsCount(pp.value);
+        _tensorShape = _getDimensions(pp.value, _dimensionsCount);
+        _tensorShapeElementCount = _getTensorShapeElementCount(pp.value);
+      } finally {
+        if (pp.value != ffi.nullptr) _releaseTensorTypeAndShapeInfo(pp.value);
+      }
+    });
   }
 
   static ONNXTensorElementDataType _getTensorElementType(
       ffi.Pointer<bg.OrtTensorTypeAndShapeInfo> infoPtr) {
-    final onnxTensorElementDataTypePtr = calloc<ffi.Int32>();
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetTensorElementType
-            .asFunction<
-                bg.OrtStatusPtr Function(
-                    ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
-                    ffi.Pointer<ffi.Int32>)>()(
-        infoPtr, onnxTensorElementDataTypePtr);
-    OrtStatus.checkOrtStatus(statusPtr);
-    final onnxTensorElementDataType = onnxTensorElementDataTypePtr.value;
-    calloc.free(onnxTensorElementDataTypePtr);
-    return ONNXTensorElementDataType.valueOf(onnxTensorElementDataType);
+    return using((arena) {
+      final onnxTensorElementDataTypePtr = arena<ffi.Int32>();
+      final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetTensorElementType
+              .asFunction<
+                  bg.OrtStatusPtr Function(
+                      ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
+                      ffi.Pointer<ffi.Int32>)>()(
+          infoPtr, onnxTensorElementDataTypePtr);
+      OrtStatus.checkOrtStatus(statusPtr);
+      final onnxTensorElementDataType = onnxTensorElementDataTypePtr.value;
+      return ONNXTensorElementDataType.valueOf(onnxTensorElementDataType);
+    });
   }
 
   static void _releaseTensorTypeAndShapeInfo(
@@ -732,41 +751,44 @@ class OrtTensorTypeAndShapeInfo {
 
   static int _getDimensionsCount(
       ffi.Pointer<bg.OrtTensorTypeAndShapeInfo> infoPtr) {
-    final countPtr = calloc<ffi.Size>();
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetDimensionsCount
-        .asFunction<
-            bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
-                ffi.Pointer<ffi.Size>)>()(infoPtr, countPtr);
-    OrtStatus.checkOrtStatus(statusPtr);
-    final count = countPtr.value;
-    calloc.free(countPtr);
-    return count;
+    return using((arena) {
+      final countPtr = arena<ffi.Size>();
+      final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetDimensionsCount
+          .asFunction<
+              bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
+                  ffi.Pointer<ffi.Size>)>()(infoPtr, countPtr);
+      OrtStatus.checkOrtStatus(statusPtr);
+      final count = countPtr.value;
+      return count;
+    });
   }
 
   static List<int> _getDimensions(
       ffi.Pointer<bg.OrtTensorTypeAndShapeInfo> infoPtr, int length) {
-    final dimensionsPtr = calloc<ffi.Int64>(length);
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetDimensions.asFunction<
-        bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
-            ffi.Pointer<ffi.Int64>, int)>()(infoPtr, dimensionsPtr, length);
-    OrtStatus.checkOrtStatus(statusPtr);
-    final dimensions =
-        List<int>.generate(length, (index) => dimensionsPtr[index]);
-    calloc.free(dimensionsPtr);
-    return dimensions;
+    return using((arena) {
+      final dimensionsPtr = arena<ffi.Int64>(length);
+      final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetDimensions.asFunction<
+          bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
+              ffi.Pointer<ffi.Int64>, int)>()(infoPtr, dimensionsPtr, length);
+      OrtStatus.checkOrtStatus(statusPtr);
+      final dimensions =
+          List<int>.generate(length, (index) => dimensionsPtr[index]);
+      return dimensions;
+    });
   }
 
   static int _getTensorShapeElementCount(
       ffi.Pointer<bg.OrtTensorTypeAndShapeInfo> infoPtr) {
-    final countPtr = calloc<ffi.Size>();
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetTensorShapeElementCount
-        .asFunction<
-            bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
-                ffi.Pointer<ffi.Size>)>()(infoPtr, countPtr);
-    OrtStatus.checkOrtStatus(statusPtr);
-    final count = countPtr.value;
-    calloc.free(countPtr);
-    return count;
+    return using((arena) {
+      final countPtr = arena<ffi.Size>();
+      final statusPtr = OrtEnv.instance.ortApiPtr.ref.GetTensorShapeElementCount
+          .asFunction<
+              bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtTensorTypeAndShapeInfo>,
+                  ffi.Pointer<ffi.Size>)>()(infoPtr, countPtr);
+      OrtStatus.checkOrtStatus(statusPtr);
+      final count = countPtr.value;
+      return count;
+    });
   }
 }
 

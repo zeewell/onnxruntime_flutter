@@ -3,6 +3,9 @@
 # OnnxRuntime Plugin
 [![pub package](https://img.shields.io/pub/v/onnxruntime.svg)](https://pub.dev/packages/onnxruntime)
 
+This fork includes [inference lifecycle fixes](LIFECYCLE_PATCH.md). In particular,
+await `OrtSession.release()` before releasing the environment.
+
 ## Overview
 
 Flutter plugin for OnnxRuntime via `dart:ffi` provides an easy, flexible, and fast Dart API to integrate Onnx models in flutter apps across mobile and desktop platforms.
@@ -77,4 +80,3 @@ outputs?.forEach((element) {
 ```dart
 OrtEnv.instance.release();
 ```
-

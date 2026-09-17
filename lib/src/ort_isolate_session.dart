@@ -1,134 +1,102 @@
-import 'dart:async';
 import 'dart:isolate';
 
+import 'package:onnxruntime/src/ort_isolate_channel.dart';
 import 'package:onnxruntime/src/ort_session.dart';
 import 'package:onnxruntime/src/ort_value.dart';
 
 class OrtIsolateSession {
-  int address;
-  final String debugName;
-  late Isolate _newIsolate;
-  late SendPort _newIsolateSendPort;
-  late StreamSubscription _streamSubscription;
-  final _outputController = StreamController<List<MapEntry>>.broadcast();
-
-  IsolateSessionState get state => _state;
-  var _state = IsolateSessionState.idle;
-  var _initialized = false;
-  final _completer = Completer();
-
-  OrtIsolateSession(
-    OrtSession session, {
-    this.debugName = 'OnnxRuntimeSessionIsolate',
-  }) : address = session.address;
-
-  Future<void> _init() async {
-    final rootIsolateReceivePort = ReceivePort();
-    final rootIsolateSendPort = rootIsolateReceivePort.sendPort;
-    _newIsolate = await Isolate.spawn(
-        createNewIsolateContext, rootIsolateSendPort,
-        debugName: debugName);
-    _streamSubscription = rootIsolateReceivePort.listen((message) {
-      if (message is SendPort) {
-        _newIsolateSendPort = message;
-        _completer.complete();
-      }
-      if (message is List<MapEntry>) {
-        _outputController.add(message);
-      }
-    });
+  OrtIsolateSession(OrtSession session,
+      {this.debugName = 'OnnxRuntimeSessionIsolate'})
+      : address = session.address {
+    _channel = OrtIsolateChannel(createNewIsolateContext, debugName: debugName);
   }
 
-  static Future<void> createNewIsolateContext(
-      SendPort rootIsolateSendPort) async {
-    final newIsolateReceivePort = ReceivePort();
-    final newIsolateSendPort = newIsolateReceivePort.sendPort;
-    rootIsolateSendPort.send(newIsolateSendPort);
-    await for (final _IsolateSessionData data in newIsolateReceivePort) {
-      final session = OrtSession.fromAddress(data.session);
-      final runOptions = OrtRunOptions.fromAddress(data.runOptions);
-      final inputs = data.inputs.map(
-          (key, value) => MapEntry(key, OrtValueTensor.fromAddress(value)));
-      final outputNames = data.outputNames;
-      final outputs = session.run(runOptions, inputs, outputNames).map((e) {
-        ONNXType onnxType;
-        if (e is OrtValueTensor) {
-          onnxType = ONNXType.tensor;
-        } else if (e is OrtValueSequence) {
-          onnxType = ONNXType.sequence;
-        } else if (e is OrtValueMap) {
-          onnxType = ONNXType.map;
-        } else if (e is OrtValueSparseTensor) {
-          onnxType = ONNXType.sparseTensor;
-        } else {
-          onnxType = ONNXType.tensor;
+  final int address;
+  final String debugName;
+  late final OrtIsolateChannel _channel;
+  IsolateSessionState get state => _channel.isBusy
+      ? IsolateSessionState.loading
+      : IsolateSessionState.idle;
+
+  static void createNewIsolateContext(SendPort replies) async {
+    final commands = ReceivePort();
+    replies.send(commands.sendPort);
+    await for (final command in commands) {
+      if (command == null) {
+        commands.close();
+        break;
+      }
+      final envelope = command as List;
+      final id = envelope[1] as int;
+      final data = envelope[2] as _IsolateSessionData;
+      List<OrtValue?> outputs = const [];
+      var transferred = false;
+      try {
+        // Borrowed wrappers never own the caller's session/options/tensors.
+        final session = OrtSession.fromAddress(data.session);
+        final options = OrtRunOptions.fromAddress(data.runOptions);
+        final inputs = data.inputs.map(
+            (key, value) => MapEntry(key, OrtValueTensor.fromAddress(value)));
+        outputs = session.run(options, inputs, data.outputNames);
+        final values = outputs.map((output) {
+          final type = output is OrtValueSequence
+              ? ONNXType.sequence
+              : output is OrtValueMap
+                  ? ONNXType.map
+                  : output is OrtValueSparseTensor
+                      ? ONNXType.sparseTensor
+                      : ONNXType.tensor;
+          return [type.value, output?.address];
+        }).toList();
+        replies.send(['ok', id, values]);
+        transferred = true;
+      } catch (error, stack) {
+        replies.send(['error', id, error.toString(), stack.toString()]);
+      } finally {
+        if (!transferred) {
+          for (final output in outputs) {
+            output?.release();
+          }
         }
-        return MapEntry(onnxType.value, e?.address);
-      }).toList();
-      rootIsolateSendPort.send(outputs);
+      }
     }
   }
 
   Future<List<OrtValue?>> run(
-      OrtRunOptions runOptions, Map<String, OrtValue> inputs,
+      OrtRunOptions options, Map<String, OrtValue> inputs,
       [List<String>? outputNames]) async {
-    if (!_initialized) {
-      await _init();
-      await _completer.future;
-      _initialized = true;
-    }
-    final transformedInputs =
-        inputs.map((key, value) => MapEntry(key, value.address));
-    _state = IsolateSessionState.loading;
-    final data = _IsolateSessionData(
+    final values = await _channel.request(_IsolateSessionData(
         session: address,
-        runOptions: runOptions.address,
-        inputs: transformedInputs,
-        outputNames: outputNames);
-    _newIsolateSendPort.send(data);
-    late List<OrtValue?> outputs;
-    await for (final result in _outputController.stream) {
-      outputs = result.map((e) {
-        final onnxType = ONNXType.valueOf(e.key);
-        switch (onnxType) {
-          case ONNXType.tensor:
-            return OrtValueTensor.fromAddress(e.value);
-          case ONNXType.sequence:
-            return OrtValueSparseTensor.fromAddress(e.value);
-          case ONNXType.map:
-            return OrtValueMap.fromAddress(e.value);
-          case ONNXType.sparseTensor:
-            return OrtValueSparseTensor.fromAddress(e.value);
-          default:
-            return null;
-        }
-      }).toList();
-      _state = IsolateSessionState.idle;
-      break;
+        runOptions: options.address,
+        inputs: inputs.map((key, value) => MapEntry(key, value.address)),
+        outputNames: outputNames)) as List;
+    final outputs = <OrtValue?>[];
+    try {
+      for (final value in values) {
+        final address = value[1] as int?;
+        outputs.add(address == null
+            ? null
+            : OrtValue.fromAddress(address, ONNXType.valueOf(value[0] as int)));
+      }
+      return outputs;
+    } catch (_) {
+      // Wrapping can fail too; all addresses have transferred to this isolate.
+      for (final value in values) {
+        final address = value[1] as int?;
+        if (address != null) OrtValue.releaseAddress(address);
+      }
+      rethrow;
     }
-    _state = IsolateSessionState.idle;
-    return outputs;
   }
 
-  Future<void> release() async {
-    await _streamSubscription.cancel();
-    await _outputController.close();
-    _newIsolate.kill();
-  }
+  Future<void> release() => _channel.release();
 }
 
-enum IsolateSessionState {
-  idle,
-  loading,
-}
+enum IsolateSessionState { idle, loading }
 
 class _IsolateSessionData {
-  _IsolateSessionData(
-      {required this.session,
-      required this.runOptions,
-      required this.inputs,
-      this.outputNames});
-
+  _IsolateSessionData({required this.session, required this.runOptions,
+    required this.inputs, this.outputNames});
   final int session;
   final int runOptions;
   final Map<String, int> inputs;

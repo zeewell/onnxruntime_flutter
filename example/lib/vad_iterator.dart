@@ -47,10 +47,10 @@ class VadIterator {
     _cell = List.filled(2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
   }
 
-  release() {
+  Future<void> release() async {
     _sessionOptions?.release();
     _sessionOptions = null;
-    _session?.release();
+    await _session?.release();
     _session = null;
     OrtEnv.instance.release();
   }
