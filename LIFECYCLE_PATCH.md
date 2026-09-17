@@ -18,10 +18,27 @@ patch itself.
 - `OrtSession.release()` now returns `Future<void>`. Await it before releasing
   the environment or other resources that pending inference may still use.
   Keep input tensors and run options alive until their inference future settles.
-- UI cancellation, queue bounds and watchdogs remain application responsibilities.
+- Optional `maxPendingRuns` on file/buffer sessions rejects excess asynchronous
+  requests before dispatch, counting startup, queued and active requests. The
+  default remains unlimited. UI cancellation, upstream frame queues and
+  watchdogs remain application responsibilities.
   A cancelled caller does not prove native completion. A permanently stalled
   native Run can retain its session indefinitely; do not replace it or free its
   resources while it still owns them.
+- Synchronous runs, metadata queries and address access reject a closing or
+  released session. The worker retains its borrowed session wrapper while
+  draining accepted requests; only the original owner releases native state.
+- Tensor metadata is read lazily. Numeric typed inputs avoid an intermediate
+  Dart list; `toTypedList()` returns an owned flat copy that survives tensor
+  release. `.value` retains scalar/nested-list output semantics. Releasing the
+  same value wrapper twice is harmless; reading it after release throws.
+- Tensor construction validates shape before native allocation and cleans up
+  failed creation. UTF-8 strings, model metadata, provider options and other
+  temporary native allocations are released on success and failure. Missing
+  custom metadata keys throw `ArgumentError`.
+- Shared global thread pools require both `OrtEnv.init(options: threading)`
+  and `OrtSessionOptions.disablePerSessionThreads()`. Repeated environment
+  initialization does not acquire another native environment reference.
 
 ## Verification
 

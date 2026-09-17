@@ -5,48 +5,52 @@ extension ListShape on List {
   ///
   /// [T] is the type of elements in list
   ///
-  /// Returns List<dynamic> if [shape.length] > 5
+  /// Returns `List<dynamic>` if [shape.length] > 5
   /// else returns list with exact type
   ///
   /// Throws [ArgumentError] if number of elements for [shape]
   /// mismatch with current number of elements in list
   List reshape<T>(List<int> shape) {
-    var dims = shape.length;
-    // var numElements = 1;
-    // for (var i = 0; i < dims; i++) {
-    //   numElements *= shape[i];
-    // }
-
-    if (dims <= 5) {
-      switch (dims) {
-        case 2:
-          return _reshape2<T>(shape);
-        case 3:
-          return _reshape3<T>(shape);
-        case 4:
-          return _reshape4<T>(shape);
-        case 5:
-          return _reshape5<T>(shape);
-      }
+    final dims = shape.length;
+    final flat = _flatForReshape<T>();
+    var count = BigInt.one;
+    for (final dimension in shape) {
+      if (dimension < 0) throw ArgumentError.value(shape, 'shape');
+      count *= BigInt.from(dimension);
     }
-
-    var reshapedList = flatten<dynamic>();
-
-    /// dims > 5
-    for (var i = dims - 1; i > 0; i--) {
-      var temp = [];
-      for (var start = 0;
-          start + shape[i] <= reshapedList.length;
-          start += shape[i]) {
-        temp.add(reshapedList.sublist(start, start + shape[i]));
-      }
-      reshapedList = temp;
+    if (count != BigInt.from(flat.length)) {
+      throw ArgumentError('Shape does not match the number of elements.');
     }
-    return reshapedList;
+    switch (dims) {
+      case 0:
+      case 1:
+        return List<T>.of(flat);
+      case 2:
+        return flat._reshape2<T>(shape);
+      case 3:
+        return flat._reshape3<T>(shape);
+      case 4:
+        return flat._reshape4<T>(shape);
+      case 5:
+        return flat._reshape5<T>(shape);
+    }
+    var offset = 0;
+    List build(int dimension) {
+      if (dimension == dims - 1) {
+        return List<T>.generate(shape[dimension], (_) => flat[offset++]);
+      }
+      return List.generate(shape[dimension], (_) => build(dimension + 1));
+    }
+    return build(0);
+  }
+
+  List<T> _flatForReshape<T>() {
+    if (this is List<T>) return this as List<T>;
+    return flatten<T>();
   }
 
   List<List<T>> _reshape2<T>(List<int> shape) {
-    var flatList = flatten<T>();
+    var flatList = _flatForReshape<T>();
     List<List<T>> reshapedList = List.generate(
       shape[0],
       (i) => List.generate(
@@ -59,7 +63,7 @@ extension ListShape on List {
   }
 
   List<List<List<T>>> _reshape3<T>(List<int> shape) {
-    var flatList = flatten<T>();
+    var flatList = _flatForReshape<T>();
     List<List<List<T>>> reshapedList = List.generate(
       shape[0],
       (i) => List.generate(
@@ -75,7 +79,7 @@ extension ListShape on List {
   }
 
   List<List<List<List<T>>>> _reshape4<T>(List<int> shape) {
-    var flatList = flatten<T>();
+    var flatList = _flatForReshape<T>();
 
     List<List<List<List<T>>>> reshapedList = List.generate(
       shape[0],
@@ -98,7 +102,7 @@ extension ListShape on List {
   }
 
   List<List<List<List<List<T>>>>> _reshape5<T>(List<int> shape) {
-    var flatList = flatten<T>();
+    var flatList = _flatForReshape<T>();
     List<List<List<List<List<T>>>>> reshapedList = List.generate(
       shape[0],
       (i) => List.generate(
@@ -125,37 +129,43 @@ extension ListShape on List {
 
   /// Get shape of the list
   List<int> get shape {
-    if (isEmpty) {
-      return [];
-    }
     var list = this as dynamic;
     var shape = <int>[];
     while (list is List) {
       shape.add(list.length);
+      if (list.isEmpty) break;
       list = list.elementAt(0);
     }
     return shape;
   }
 
   /// Flatten this list, [T] is element type
-  /// if not specified List<dynamic> is returned
+  /// if not specified `List<dynamic>` is returned
   List<T> flatten<T>() {
-    var flat = <T>[];
-    forEach((e) {
-      if (e is List) {
-        flat.addAll(e.flatten());
-      } else if (e is T) {
-        flat.add(e);
-      } else {
-        // Error with typing
+    final flat = <T>[];
+    void append(List list) {
+      for (final element in list) {
+        if (element is List) {
+          append(element);
+        } else {
+          flat.add(element as T);
+        }
       }
-    });
+    }
+    append(this);
     return flat;
   }
 
   dynamic element() {
     var list = this as dynamic;
     while (list is List && !list.isByteBuffer()) {
+      if (list.isEmpty) {
+        if (list is List<int>) return 0;
+        if (list is List<double>) return 0.0;
+        if (list is List<bool>) return false;
+        if (list is List<String>) return '';
+        throw ArgumentError('Cannot infer the type of an empty list.');
+      }
       list = list.elementAt(0);
     }
     return list;

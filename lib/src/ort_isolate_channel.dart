@@ -5,10 +5,17 @@ import 'dart:isolate';
 /// No timeout kills the worker: a sent request owns native pointers until its
 /// reply or actual isolate exit. The next request rebuilds an exited worker.
 class OrtIsolateChannel {
-  OrtIsolateChannel(this.entryPoint, {required this.debugName});
+  OrtIsolateChannel(this.entryPoint,
+      {required this.debugName, this.maxPendingRequests}) {
+    if (maxPendingRequests != null && maxPendingRequests! < 1) {
+      throw ArgumentError.value(maxPendingRequests, 'maxPendingRequests',
+          'Must be positive or null');
+    }
+  }
 
   final void Function(SendPort) entryPoint;
   final String debugName;
+  final int? maxPendingRequests;
   final Map<int, Completer<Object?>> _pending = {};
   SendPort? _commands;
   Future<void>? _starting;
@@ -19,8 +26,9 @@ class OrtIsolateChannel {
   StackTrace? _fatalStack;
   int _nextId = 0;
   bool _closed = false;
+  int _requestCount = 0;
 
-  bool get isBusy => _pending.isNotEmpty;
+  bool get isBusy => _requestCount != 0;
 
   Future<void> _ensureStarted() {
     return _starting ??= _start();
@@ -91,18 +99,27 @@ class OrtIsolateChannel {
 
   Future<Object?> request(Object? payload) async {
     if (_closed) throw StateError('ONNX isolate channel released');
-    await _ensureStarted();
-    if (_closed) throw StateError('ONNX isolate channel released');
-    final id = ++_nextId;
-    final result = Completer<Object?>();
-    _pending[id] = result;
-    try {
-      _commands!.send(['request', id, payload]);
-    } catch (error, stack) {
-      _pending.remove(id);
-      result.completeError(error, stack);
+    if (maxPendingRequests != null && _requestCount >= maxPendingRequests!) {
+      throw StateError('ONNX asynchronous run limit reached');
     }
-    return result.future;
+    // Reserve before startup awaits, otherwise a burst could bypass the limit.
+    _requestCount++;
+    try {
+      await _ensureStarted();
+      if (_closed) throw StateError('ONNX isolate channel released');
+      final id = ++_nextId;
+      final result = Completer<Object?>();
+      _pending[id] = result;
+      try {
+        _commands!.send(['request', id, payload]);
+      } catch (error, stack) {
+        _pending.remove(id);
+        result.completeError(error, stack);
+      }
+      return await result.future;
+    } finally {
+      _requestCount--;
+    }
   }
 
   Future<void> release() async {

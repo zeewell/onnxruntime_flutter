@@ -30,31 +30,45 @@ class OrtEnv {
     _apiVersion = apiVersion;
   }
 
-  /// Initialize the onnx runtime environment.
+  /// Initialize the onnx runtime environment. Repeated calls are no-ops until
+  /// release; configure global thread pools before creating any sessions.
   void init(
       {OrtLoggingLevel level = OrtLoggingLevel.warning,
       String logId = 'DartOnnxRuntime',
       OrtThreadingOptions? options}) {
-    final pp = calloc<ffi.Pointer<bg.OrtEnv>>();
-    bg.OrtStatusPtr statusPtr;
-    if (options == null) {
-      statusPtr = _ortApiPtr.ref.CreateEnv.asFunction<
+    if (_ptr != null) return;
+    using((arena) {
+      final pp = arena<ffi.Pointer<bg.OrtEnv>>();
+      final logIdPtr = logId.toNativeUtf8(allocator: arena).cast<ffi.Char>();
+      var initialized = false;
+      try {
+        bg.OrtStatusPtr statusPtr;
+        if (options == null) {
+          statusPtr = _ortApiPtr.ref.CreateEnv.asFunction<
               bg.OrtStatusPtr Function(int, ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Pointer<bg.OrtEnv>>)>()(
-          level.value, logId.toNativeUtf8().cast<ffi.Char>(), pp);
-    } else {
-      statusPtr = _ortApiPtr.ref.CreateEnvWithGlobalThreadPools.asFunction<
-              bg.OrtStatusPtr Function(
-                  int,
-                  ffi.Pointer<ffi.Char>,
+              level.value, logIdPtr, pp);
+        } else {
+          statusPtr = _ortApiPtr.ref.CreateEnvWithGlobalThreadPools.asFunction<
+              bg.OrtStatusPtr Function(int, ffi.Pointer<ffi.Char>,
                   ffi.Pointer<bg.OrtThreadingOptions>,
                   ffi.Pointer<ffi.Pointer<bg.OrtEnv>>)>()(
-          level.value, logId.toNativeUtf8().cast<ffi.Char>(), options._ptr, pp);
-    }
-    OrtStatus.checkOrtStatus(statusPtr);
-    _ptr = pp.value;
-    _setLanguageProjection();
-    calloc.free(pp);
+              level.value, logIdPtr, options._ptr, pp);
+        }
+        OrtStatus.checkOrtStatus(statusPtr);
+        _ptr = pp.value;
+        _setLanguageProjection();
+        initialized = true;
+      } finally {
+        if (!initialized) {
+          if (pp.value != ffi.nullptr) {
+            _ortApiPtr.ref.ReleaseEnv
+                .asFunction<void Function(ffi.Pointer<bg.OrtEnv>)>()(pp.value);
+          }
+          _ptr = null;
+        }
+      }
+    });
   }
 
   /// Release the onnx runtime environment.
@@ -86,25 +100,28 @@ class OrtEnv {
 
   /// Gets all available providers.
   List<OrtProvider> availableProviders() {
-    final providersPtr = calloc<ffi.Pointer<ffi.Pointer<ffi.Char>>>();
-    final lengthPtr = calloc<ffi.Int>();
-    var statusPtr = ortApiPtr.ref.GetAvailableProviders.asFunction<
-        bg.OrtStatusPtr Function(
-            ffi.Pointer<ffi.Pointer<ffi.Pointer<ffi.Char>>>,
-            ffi.Pointer<ffi.Int>)>()(providersPtr, lengthPtr);
-    OrtStatus.checkOrtStatus(statusPtr);
-    int length = lengthPtr.value;
-    final list = List<OrtProvider>.generate(length, (index) {
-      final provider = providersPtr.value[index].cast<Utf8>().toDartString();
-      return OrtProvider.valueOf(provider);
+    return using((arena) {
+      final providers = arena<ffi.Pointer<ffi.Pointer<ffi.Char>>>();
+      final length = arena<ffi.Int>();
+      try {
+        final status = ortApiPtr.ref.GetAvailableProviders.asFunction<
+            bg.OrtStatusPtr Function(
+                ffi.Pointer<ffi.Pointer<ffi.Pointer<ffi.Char>>>,
+                ffi.Pointer<ffi.Int>)>()(providers, length);
+        OrtStatus.checkOrtStatus(status);
+        return List<OrtProvider>.generate(length.value, (index) {
+          final provider = providers.value[index].cast<Utf8>().toDartString();
+          return OrtProvider.valueOf(provider);
+        });
+      } finally {
+        if (providers.value != ffi.nullptr) {
+          final status = ortApiPtr.ref.ReleaseAvailableProviders.asFunction<
+              bg.OrtStatusPtr Function(ffi.Pointer<ffi.Pointer<ffi.Char>>,
+                  int)>()(providers.value, length.value);
+          OrtStatus.checkOrtStatus(status);
+        }
+      }
     });
-    statusPtr = ortApiPtr.ref.ReleaseAvailableProviders.asFunction<
-        bg.OrtStatusPtr Function(ffi.Pointer<ffi.Pointer<ffi.Char>>,
-            int)>()(providersPtr.value, lengthPtr.value);
-    OrtStatus.checkOrtStatus(statusPtr);
-    calloc.free(providersPtr);
-    calloc.free(lengthPtr);
-    return list;
   }
 
   void _setLanguageProjection() {
@@ -174,14 +191,22 @@ class OrtThreadingOptions {
   }
 
   void _create() {
-    final pp = calloc<ffi.Pointer<bg.OrtThreadingOptions>>();
-    final statusPtr = OrtEnv.instance.ortApiPtr.ref.CreateThreadingOptions
-        .asFunction<
-            bg.OrtStatusPtr Function(
+    using((arena) {
+      final pp = arena<ffi.Pointer<bg.OrtThreadingOptions>>();
+      try {
+        final status = OrtEnv.instance.ortApiPtr.ref.CreateThreadingOptions
+            .asFunction<bg.OrtStatusPtr Function(
                 ffi.Pointer<ffi.Pointer<bg.OrtThreadingOptions>>)>()(pp);
-    OrtStatus.checkOrtStatus(statusPtr);
-    _ptr = pp.value;
-    calloc.free(pp);
+        OrtStatus.checkOrtStatus(status);
+        _ptr = pp.value;
+      } catch (_) {
+        if (pp.value != ffi.nullptr) {
+          OrtEnv.instance.ortApiPtr.ref.ReleaseThreadingOptions.asFunction<
+              void Function(ffi.Pointer<bg.OrtThreadingOptions>)>()(pp.value);
+        }
+        rethrow;
+      }
+    });
   }
 
   void release() {
@@ -226,12 +251,13 @@ class OrtThreadingOptions {
 
   /// Sets the global intra op thread affinity.
   void setGlobalIntraOpThreadAffinity(String affinity) {
-    final statusPtr =
-        OrtEnv.instance.ortApiPtr.ref.SetGlobalIntraOpThreadAffinity.asFunction<
-                bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtThreadingOptions>,
-                    ffi.Pointer<ffi.Char>)>()(
-            _ptr, affinity.toNativeUtf8().cast<ffi.Char>());
-    OrtStatus.checkOrtStatus(statusPtr);
+    using((arena) {
+      final status = OrtEnv.instance.ortApiPtr.ref.SetGlobalIntraOpThreadAffinity
+          .asFunction<bg.OrtStatusPtr Function(
+              ffi.Pointer<bg.OrtThreadingOptions>, ffi.Pointer<ffi.Char>)>()(
+          _ptr, affinity.toNativeUtf8(allocator: arena).cast());
+      OrtStatus.checkOrtStatus(status);
+    });
   }
 }
 
@@ -244,14 +270,23 @@ class OrtAllocator {
 
   ffi.Pointer<bg.OrtAllocator> get ptr => _ptr;
 
+  /// Frees memory allocated by this ONNX Runtime allocator.
+  void free(ffi.Pointer<ffi.Void> pointer) {
+    if (pointer == ffi.nullptr) return;
+    final status = OrtEnv.instance.ortApiPtr.ref.AllocatorFree.asFunction<
+        bg.OrtStatusPtr Function(ffi.Pointer<bg.OrtAllocator>,
+            ffi.Pointer<ffi.Void>)>()(_ptr, pointer);
+    OrtStatus.checkOrtStatus(status);
+  }
+
   OrtAllocator._() {
-    final pp = calloc<ffi.Pointer<bg.OrtAllocator>>();
-    final statusPtr =
-        OrtEnv.instance.ortApiPtr.ref.GetAllocatorWithDefaultOptions.asFunction<
-            bg.OrtStatusPtr Function(
-                ffi.Pointer<ffi.Pointer<bg.OrtAllocator>>)>()(pp);
-    OrtStatus.checkOrtStatus(statusPtr);
-    _ptr = pp.value;
-    calloc.free(pp);
+    using((arena) {
+      final pp = arena<ffi.Pointer<bg.OrtAllocator>>();
+      final status = OrtEnv.instance.ortApiPtr.ref.GetAllocatorWithDefaultOptions
+          .asFunction<bg.OrtStatusPtr Function(
+              ffi.Pointer<ffi.Pointer<bg.OrtAllocator>>)>()(pp);
+      OrtStatus.checkOrtStatus(status);
+      _ptr = pp.value;
+    });
   }
 }

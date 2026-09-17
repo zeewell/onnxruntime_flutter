@@ -90,6 +90,62 @@ outputs?.forEach((element) {
 });
 ```
 
+### Large numeric tensors
+
+Pass a flat `Float32List`, `Int64List`, or another supported numeric typed list
+with an explicit shape to avoid flattening nested Dart lists. Input data is
+copied into native memory owned by the tensor.
+
+For large outputs, use `toTypedList()` to obtain a flat typed copy, without
+constructing nested Dart lists:
+
+```dart
+final tensor = outputs.first as OrtValueTensor;
+final pixels = tensor.toTypedList() as Float32List;
+tensor.release();
+// pixels owns its data and remains valid after tensor.release().
+```
+
+`toTypedList()` supports signed/unsigned 8-, 16-, 32-, and 64-bit integers,
+Float32 and Float64. It throws `UnsupportedError` for other types, including
+boolean and string tensors. The existing `.value` getter still returns scalar
+or nested-list values. Both getters return data independent of the tensor;
+read them before releasing it. Repeated reads produce new copies.
+
+### Bounding asynchronous submissions
+
+Each session's worker processes asynchronous runs sequentially. Set a limit
+when creating the session to bound outstanding requests:
+
+```dart
+final session = OrtSession.fromBuffer(bytes, sessionOptions, maxPendingRuns: 1);
+```
+
+The limit includes worker startup, queued runs, and the active run. An excess
+request fails with `StateError` before its pointers are sent to the worker;
+accepted requests are never dropped. Omit the option to retain unlimited
+submission. For camera/audio streams, also avoid producing an unbounded queue
+before calling this API. Keep accepted inputs and run options alive until their
+futures settle, and await `session.release()` before releasing the environment.
+
+### Sharing CPU thread pools across sessions
+
+Configure the environment before creating any sessions, then opt each session
+into its shared pools:
+
+```dart
+final threading = OrtThreadingOptions()
+  ..setGlobalIntraOpNumThreads(2)
+  ..setGlobalInterOpNumThreads(1);
+OrtEnv.instance.init(options: threading);
+threading.release();
+final sessionOptions = OrtSessionOptions()..disablePerSessionThreads();
+```
+
+Repeated environment initialization is a no-op until release. Session-local
+thread pools remain the default; tune counts using the actual models and
+devices. Release all sessions before releasing the environment.
+
 ### Releasing environment
 
 ```dart

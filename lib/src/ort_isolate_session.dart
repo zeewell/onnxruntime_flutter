@@ -6,9 +6,10 @@ import 'package:onnxruntime/src/ort_value.dart';
 
 class OrtIsolateSession {
   OrtIsolateSession(OrtSession session,
-      {this.debugName = 'OnnxRuntimeSessionIsolate'})
+      {this.debugName = 'OnnxRuntimeSessionIsolate', int? maxPendingRuns})
       : address = session.address {
-    _channel = OrtIsolateChannel(createNewIsolateContext, debugName: debugName);
+    _channel = OrtIsolateChannel(createNewIsolateContext,
+        debugName: debugName, maxPendingRequests: maxPendingRuns);
   }
 
   final int address;
@@ -21,6 +22,7 @@ class OrtIsolateSession {
   static void createNewIsolateContext(SendPort replies) async {
     final commands = ReceivePort();
     replies.send(commands.sendPort);
+    OrtSession? session;
     await for (final command in commands) {
       if (command == null) {
         commands.close();
@@ -33,7 +35,9 @@ class OrtIsolateSession {
       var transferred = false;
       try {
         // Borrowed wrappers never own the caller's session/options/tensors.
-        final session = OrtSession.fromAddress(data.session);
+        // This worker belongs to one native session. Cache its stable metadata;
+        // only the caller releases the native session after this worker exits.
+        session ??= OrtSession.fromAddress(data.session);
         final options = OrtRunOptions.fromAddress(data.runOptions);
         final inputs = data.inputs.map(
             (key, value) => MapEntry(key, OrtValueTensor.fromAddress(value)));
