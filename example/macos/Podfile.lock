@@ -2,28 +2,28 @@ PODS:
   - FlutterMacOS (1.0.0)
   - onnxruntime (0.0.1):
     - FlutterMacOS
-  - path_provider_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
+    - onnxruntime-c (= 1.30.0)
+  - onnxruntime-c (1.30.0)
 
 DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
   - onnxruntime (from `Flutter/ephemeral/.symlinks/plugins/onnxruntime/macos`)
-  - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
+
+SPEC REPOS:
+  trunk:
+    - onnxruntime-c
 
 EXTERNAL SOURCES:
   FlutterMacOS:
     :path: Flutter/ephemeral
   onnxruntime:
     :path: Flutter/ephemeral/.symlinks/plugins/onnxruntime/macos
-  path_provider_foundation:
-    :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
 
 SPEC CHECKSUMS:
-  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
-  onnxruntime: 922a85d3c9ed1b3c2b515ec903fc4d9b8f51d96b
-  path_provider_foundation: 29f094ae23ebbca9d3d0cec13889cd9060c0e943
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  onnxruntime: ae3138db3a423edd98f92247add230a29ba5a039
+  onnxruntime-c: 36ca0f2cdbc89c6b330ec5287c3faf5ca6ed394d
 
-PODFILE CHECKSUM: 9ebaf0ce3d369aaa26a9ea0e159195ed94724cf3
+PODFILE CHECKSUM: 6acf97521436d16fc31cd5e1a02000905acdb3ae
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.17.0

@@ -7,12 +7,9 @@ final DynamicLibrary _dylib = () {
     return DynamicLibrary.open('libonnxruntime.so');
   }
 
-  if (Platform.isIOS) {
+  if (Platform.isIOS || Platform.isMacOS) {
+    // Apple platforms statically link the official ONNX Runtime CocoaPod.
     return DynamicLibrary.process();
-  }
-
-  if (Platform.isMacOS) {
-    return DynamicLibrary.open('libonnxruntime.1.15.1.dylib');
   }
 
   if (Platform.isWindows) {
@@ -20,7 +17,7 @@ final DynamicLibrary _dylib = () {
   }
 
   if (Platform.isLinux) {
-    return DynamicLibrary.open('libonnxruntime.so.1.15.1');
+    return DynamicLibrary.open('libonnxruntime.so.1.30.0');
   }
 
   throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');

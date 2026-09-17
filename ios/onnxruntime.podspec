@@ -20,11 +20,13 @@ OnnxRuntime plugin for Flutter apps.
   s.source           = { :path => '.' }
   # s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.dependency 'onnxruntime-objc', '1.15.1'
-  s.platform = :ios, '11.0'
+  s.dependency 'onnxruntime-objc', '1.30.0'
+  s.platform = :ios, '15.1'
   s.static_framework = true
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  # Dart FFI looks these up by name; retain them when linking the static runtime.
+  s.user_target_xcconfig = { 'OTHER_LDFLAGS' => '$(inherited) -Wl,-u,_OrtGetApiBase -Wl,-u,_OrtSessionOptionsAppendExecutionProvider_CPU -Wl,-u,_OrtSessionOptionsAppendExecutionProvider_CoreML' }
   s.swift_version = '5.0'
 end

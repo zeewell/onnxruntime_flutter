@@ -20,9 +20,11 @@ OnnxRuntime plugin for Flutter apps.
   s.source           = { :path => '.' }
   # s.source_files = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
-  s.vendored_libraries = '*.dylib'
-  s.platform = :osx, '10.14'
+  s.dependency 'onnxruntime-c', '1.30.0'
+  s.platform = :osx, '14.0'
   s.static_framework = true
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  # Dart FFI looks these up by name; retain them when linking the static runtime.
+  s.user_target_xcconfig = { 'OTHER_LDFLAGS' => '$(inherited) -Wl,-u,_OrtGetApiBase -Wl,-u,_OrtSessionOptionsAppendExecutionProvider_CPU -Wl,-u,_OrtSessionOptionsAppendExecutionProvider_CoreML' }
   s.swift_version = '5.0'
 end

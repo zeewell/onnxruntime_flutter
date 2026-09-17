@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 
-// Opt-in: host must have the unchanged ONNX Runtime 1.15.1 native library on
-// its loader path. The normal isolate/lane tests do not require native binaries.
+// Opt-in: load ONNX Runtime 1.30.0 as described in LIFECYCLE_PATCH.md.
+// The normal isolate/lane tests do not require native binaries.
 void main() {
   test('native termination reports an error and repeated next requests succeed', () async {
     OrtEnv.instance.init();

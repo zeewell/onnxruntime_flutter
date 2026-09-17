@@ -36,14 +36,19 @@ termination errors, invalid input and successful Identity inference using the
 existing MIT-licensed `example/assets/models/test_types_FLOAT.pb` fixture:
 
 ```sh
-DYLD_LIBRARY_PATH="$PWD/macos" ONNX_NATIVE_TEST=1 \
+DYLD_INSERT_LIBRARIES="$ORT_DYLIB" ONNX_NATIVE_TEST=1 \
   "$FLUTTER_ROOT/bin/cache/dart-sdk/bin/dart" \
   "$FLUTTER_ROOT/bin/cache/flutter_tools.snapshot" \
   test --no-pub test/onnx_native_lifecycle_test.dart
 ```
 
 Set `FLUTTER_ROOT` to your Flutter SDK directory and run `flutter pub get` first.
-Invoking the Dart executable directly avoids macOS stripping `DYLD_LIBRARY_PATH`
+Set `ORT_DYLIB` to the absolute path of `libonnxruntime.1.30.0.dylib` from the
+official macOS ARM64 release archive (see [native dependencies](NATIVE_DEPENDENCIES.md)).
+The Flutter test runner does not link the application's CocoaPods, so the library
+must be injected into its process for this opt-in test. This standalone test
+command requires an Apple Silicon Mac; the application's CocoaPod supports Intel
+as well. Invoking Dart directly avoids macOS stripping `DYLD_INSERT_LIBRARIES`
 while passing through the Flutter shell launcher.
 
 These checks do not establish device/CoreML cancellation latency, recovery from
