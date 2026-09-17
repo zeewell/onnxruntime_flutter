@@ -9,8 +9,8 @@ supports. Updating the runtime does not expose every new C API through Dart.
 | Platform | Source | Packaging |
 | --- | --- | --- |
 | Android | [Maven Central AAR](https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.30.0/onnxruntime-android-1.30.0.aar) | Only `jni/arm64-v8a/libonnxruntime.so` and `jni/armeabi-v7a/libonnxruntime.so`; API 24+, 16 KB ELF alignment |
-| iOS | Local Swift package with the official `onnxruntime-c` binary target | Static XCFramework; iOS 15.1+, device arm64 and simulator arm64/x64 |
-| macOS | Local Swift package with the official `onnxruntime-c` binary target | Static XCFramework; macOS 14+, ARM64 and x64 |
+| iOS | Swift package binary target or `onnxruntime-c` CocoaPod, both 1.30.0 | Static XCFramework; iOS 15.1+, device arm64 and simulator arm64/x64 |
+| macOS | Swift package binary target or `onnxruntime-c` CocoaPod, both 1.30.0 | Static XCFramework; macOS 14+, ARM64 and x64 |
 | Linux | `onnxruntime-linux-x64-1.30.0.tgz` release asset | `lib/libonnxruntime.so.1.30.0`; x64, glibc 2.28+ and compatible libstdc++ |
 | Windows | `onnxruntime-win-x64-1.30.0.zip` release asset | `lib/onnxruntime.dll`; x64, Windows 10+ and Visual C++ runtime |
 
@@ -18,40 +18,43 @@ Android continues to package only the C runtime, without the AAR's Java/JNI
 wrapper or manifest components. Desktop packages use the CPU distributions;
 provider availability is determined by each official binary.
 
-Apple uses the shared local package at `darwin/onnxruntime/Package.swift`. Its
-binary target downloads the official
+Apple supports the shared Swift package at `darwin/onnxruntime/Package.swift`
+and the shared CocoaPods specification at `darwin/onnxruntime.podspec`. The
+Swift package's binary target downloads the official
 `https://download.onnxruntime.ai/pod-archive-onnxruntime-c-1.30.0.zip` archive and
-links the C runtime statically. The package linker settings preserve the weak
-CoreML link and the `OrtGetApiBase`,
+links the C runtime statically. CocoaPods uses `onnxruntime-c` 1.30.0, which
+downloads the same archive. Both integrations preserve the weak CoreML link and
+the `OrtGetApiBase`,
 `OrtSessionOptionsAppendExecutionProvider_CPU`, and
 `OrtSessionOptionsAppendExecutionProvider_CoreML` entry points used by Dart FFI,
 including in release builds. Dart continues to resolve them through
 `DynamicLibrary.process()`. iOS no longer depends on `onnxruntime-objc`, and
 macOS no longer bundles the old 1.15.1 dylib.
 
-The linker flags use SwiftPM's `unsafeFlags` setting, supported by Flutter's
+The Swift package uses the `unsafeFlags` linker setting, supported by Flutter's
 generated local path dependencies. The package also depends on the
 Flutter-managed `FlutterFramework` package in the generated packages directory.
 
 The standalone macOS ARM64 archive is used only for host regression testing;
-applications use the universal XCFramework from the Swift package. Upstream
+applications use the universal XCFramework from SwiftPM or CocoaPods. Upstream
 license and third-party notices for redistributed binaries are included under
 `native_licenses/`.
 
-### Apple host migration
+### Apple host integration
 
-The plugin declares both Apple platforms as FFI plugins with shared Darwin
-sources, so Swift Package Manager support is required. CocoaPods-only iOS and
-macOS hosts are no longer supported. Existing applications should
-[enable Swift Package Manager and follow Flutter's migration guidance](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers),
-then rebuild so Flutter can migrate the generated Apple project integration and
-attach `FlutterGeneratedPluginSwiftPackage`.
+Both Apple platforms declare `ffiPlugin: true` and `sharedDarwinSource: true`.
+Flutter selects the Swift package when SwiftPM is enabled, or the shared Darwin
+podspec when SwiftPM is disabled. CocoaPods hosts can keep their existing
+Podfiles and update their resolved pods after upgrading the plugin; the former
+platform-specific podspecs are now represented by one shared specification.
 
-Do not unconditionally remove CocoaPods from an application. The old plugin
-podspecs and ONNX Runtime pods are no longer used, but the application may still
-need its Podfile, Pods configuration, or workspace for other dependencies.
+Applications moving to SwiftPM should
+[follow Flutter's migration guidance](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers)
+and rebuild to attach `FlutterGeneratedPluginSwiftPackage`. Remove CocoaPods
+from the application only when none of its other dependencies still need it.
 
-The example Xcode projects navigate directly to the shared `Package.swift`.
+The example defaults to SwiftPM and its Xcode projects navigate directly to the
+shared `Package.swift`.
 `FlutterGeneratedPluginSwiftPackage` owns the dependency; adding a second local
 package override can conflict with Flutter's generated package identity when
 the checkout directory name differs from the Dart package name.

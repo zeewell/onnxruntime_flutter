@@ -1,9 +1,8 @@
 ## Unreleased
 
-* **Breaking:** iOS and macOS integration now requires Flutter's Swift Package
-  Manager support; CocoaPods-only Apple hosts are no longer supported.
+* Supports both Swift Package Manager and CocoaPods on iOS and macOS.
 * Links the official ONNX Runtime 1.30.0 C XCFramework statically through a
-  shared Darwin Swift package. The supported Apple deployment targets,
+  shared Darwin Swift package or podspec. The supported Apple deployment targets,
   architectures, and Dart API remain unchanged.
 
 ## 1.4.1

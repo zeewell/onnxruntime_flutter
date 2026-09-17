@@ -23,14 +23,15 @@ checksums, Apple linking, and Android build requirements.
 
 ### Apple host setup
 
-iOS and macOS applications must use Flutter's Swift Package Manager integration.
-CocoaPods-only Apple hosts are no longer supported by this plugin. Existing
-applications should [enable Swift Package Manager and migrate with Flutter](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers),
-then rebuild so Flutter can add the plugin through
-`FlutterGeneratedPluginSwiftPackage`.
-Whether the application's old CocoaPods integration can be removed depends on
-its other dependencies; do not remove it while another dependency still needs
-CocoaPods.
+iOS and macOS support both Swift Package Manager and CocoaPods. Both integrations
+use ONNX Runtime **1.30.0** and retain the same deployment targets and Dart API.
+Flutter uses the Swift package when SwiftPM is enabled, and the shared Darwin
+podspec when SwiftPM is disabled. The example app uses SwiftPM by default.
+
+CocoaPods applications can continue using their existing integration. Applications
+moving to SwiftPM should follow [Flutter's migration guidance](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers).
+Remove the application's CocoaPods integration only after all of its dependencies
+support SwiftPM.
 
 ## Key Features
 

@@ -63,7 +63,7 @@ DYLD_INSERT_LIBRARIES="$ORT_DYLIB" ONNX_NATIVE_TEST=1 \
 Set `FLUTTER_ROOT` to your Flutter SDK directory and run `flutter pub get` first.
 Set `ORT_DYLIB` to the absolute path of `libonnxruntime.1.30.0.dylib` from the
 official macOS ARM64 release archive (see [native dependencies](NATIVE_DEPENDENCIES.md)).
-The Flutter test runner does not link the application's native Swift package
+The Flutter test runner does not link the application's CocoaPods or Swift package
 dependencies, so the library must be injected into its process for this opt-in
 test. This standalone test command requires an Apple Silicon Mac; the
 universal macOS XCFramework used by applications also includes Intel. Invoking
